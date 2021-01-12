@@ -6,10 +6,10 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies.drogue-async]
-path = "../drogue-async"
-default-features = false
-features = ["cortex-m"]
+#[dependencies.drogue-async]
+#path = "../drogue-async"
+#default-features = false
+#features = ["cortex-m"]
 
 [dependencies.drogue-device]
 path = "../drogue-device"

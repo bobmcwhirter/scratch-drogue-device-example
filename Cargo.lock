@@ -357,7 +357,6 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "drogue-async",
  "drogue-device",
  "embedded-hal",
  "embedded-time",

@@ -16,17 +16,13 @@ use stm32l4xx_hal::gpio::{Edge, Input, Output, PullUp, PushPull, PA5, PC13};
 
 use crate::button::{Button, ButtonState};
 use crate::led::LEDCommand;
-use drogue_device::component::ConnectedComponent;
-use drogue_device::interrupt::ConnectedInterrupt;
 use led::LED;
 use stm32l4xx_hal::pac::Interrupt;
 use stm32l4xx_hal::pac::Interrupt::EXTI15_10;
 
 static LOGGER: RTTLogger = RTTLogger::new(LevelFilter::Debug);
 
-use drogue_device::device;
-use drogue_device::kernel::{Kernel, KernelContext};
-use drogue_device::sink::Handler;
+use drogue_device::prelude::*;
 
 struct Device {
     ld1: ConnectedComponent<LED<PA5<Output<PushPull>>>>,

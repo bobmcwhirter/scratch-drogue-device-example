@@ -1,5 +1,4 @@
-use drogue_async::task::spawn;
-use drogue_device::component::{Component, ComponentContext};
+use drogue_device::component::{Component, ComponentContext, spawn};
 use stm32l4xx_hal::hal::digital::v2::OutputPin;
 
 #[derive(Debug)]
