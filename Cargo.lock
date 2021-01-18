@@ -97,21 +97,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "drogue-async"
+name = "drogue-device"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
  "heapless",
  "log",
-]
-
-[[package]]
-name = "drogue-device"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "drogue-async",
- "heapless",
 ]
 
 [[package]]
@@ -182,9 +173,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.11"
+version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fabed175da42fed1fa0746b0ea71f412aa9d35e76e95e59b192c64b9dc2bf8b"
+checksum = "fcf3805d4480bb5b86070dcfeb9e2cb2ebc148adb753c5cca5f884d1d65a42b2"
 dependencies = [
  "cfg-if",
 ]

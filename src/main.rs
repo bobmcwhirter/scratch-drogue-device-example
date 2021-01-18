@@ -3,6 +3,7 @@
 
 mod button;
 mod led;
+mod device;
 
 use cortex_m_rt::{entry, exception};
 use stm32l4xx_hal::{prelude::*, rcc::RccExt, stm32::Peripherals};
@@ -14,40 +15,17 @@ use rtt_target::rtt_init_print;
 
 use stm32l4xx_hal::gpio::{Edge, Input, Output, PullUp, PushPull, PA5, PC13};
 
-use crate::button::{Button, ButtonState};
-use crate::led::LEDCommand;
+use button::Button;
 use led::LED;
-use stm32l4xx_hal::pac::Interrupt;
+use device::MyDevice;
 use stm32l4xx_hal::pac::Interrupt::EXTI15_10;
+use drogue_device::actor::ActorContext;
+use drogue_device::interrupt::InterruptContext;
+use drogue_device::supervisor::Supervisor;
+use drogue_device::device::Device;
+use drogue_device::init_heap;
 
 static LOGGER: RTTLogger = RTTLogger::new(LevelFilter::Debug);
-
-use drogue_device::prelude::*;
-
-struct Device {
-    ld1: ConnectedComponent<LED<PA5<Output<PushPull>>>>,
-    button: ConnectedInterrupt<Button<Interrupt, PC13<Input<PullUp>>>>,
-}
-
-impl Kernel for Device {
-    fn start(&'static self, ctx: &'static KernelContext<Self>) {
-        self.ld1.start(ctx);
-        self.button.start(ctx);
-    }
-}
-
-impl Handler<ButtonState> for Device {
-    fn on_message(&mut self, message: ButtonState) {
-        match message {
-            ButtonState::Pressed => {
-                self.ld1.send(LEDCommand::On);
-            }
-            ButtonState::Released => {
-                self.ld1.send(LEDCommand::Off);
-            }
-        }
-    }
-}
 
 #[entry]
 fn main() -> ! {
@@ -91,10 +69,36 @@ fn main() -> ! {
 
     let button = Button::new(EXTI15_10, button);
 
-    let device = Device {
-        ld1: ConnectedComponent::new(ld1),
-        button: ConnectedInterrupt::new(button),
+    let mut device = MyDevice {
+        ld1: ActorContext::new(ld1),
+        button: InterruptContext::new(button),
     };
 
-    device!( Device => device; 1024 );
+    let device = unsafe {
+        DEVICE.replace(device);
+        DEVICE.as_mut().unwrap()
+    };
+
+    let supervisor= unsafe {
+        SUPERVISOR.replace( Supervisor::new() );
+        SUPERVISOR.as_mut().unwrap()
+    };
+
+    init_heap!( 1024 );
+
+    device.start(supervisor);
+    supervisor.run_forever()
+    //loop {}
+    //device!( MyDevice => device; 1024 );
 }
+
+#[exception]
+fn DefaultHandler(irqn: i16) {
+    log::info!("IRQ {}", irqn);
+    unsafe {
+        SUPERVISOR.as_ref().unwrap().on_interrupt(irqn);
+    }
+}
+
+static mut DEVICE: Option<MyDevice> = None;
+static mut SUPERVISOR: Option<Supervisor> = None;
