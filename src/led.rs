@@ -1,9 +1,6 @@
 //use drogue_device::component::{Component, ComponentContext, spawn};
 use stm32l4xx_hal::hal::digital::v2::OutputPin;
-use drogue_device::actor::Actor;
-use drogue_device::handler::{AskHandler, Response, TellHandler, Completion};
-use stm32l4xx_hal::pac::Interrupt::COMP;
-use stm32l4xx_hal::pac::i2c1::isr::TC_A::COMPLETE;
+use drogue_device::prelude::*;
 
 pub struct On;
 pub struct Off;
@@ -18,11 +15,12 @@ impl<PIN: OutputPin> LED<PIN> {
     }
 
     pub fn turn_on(&mut self) {
-        self.pin.set_low().ok().unwrap();
+
+        self.pin.set_high().ok().unwrap();
     }
 
     pub fn turn_off(&mut self) {
-        self.pin.set_high().ok().unwrap();
+        self.pin.set_low().ok().unwrap();
     }
 }
 
@@ -30,17 +28,17 @@ impl<PIN: OutputPin> Actor for LED<PIN> {
 
 }
 
-impl<PIN: OutputPin> TellHandler<On> for LED<PIN> {
-
-    fn on_message(&'static mut self, message: On) -> Completion {
+impl<PIN: OutputPin> NotificationHandler<On> for LED<PIN> {
+    fn on_notification(&'static mut self, message: On) -> Completion {
+        log::info!("LED turn on");
         self.turn_on();
         Completion::immediate()
     }
 }
 
-impl<PIN: OutputPin> TellHandler<Off> for LED<PIN> {
-
-    fn on_message(&'static mut self, message: Off) -> Completion {
+impl<PIN: OutputPin> NotificationHandler<Off> for LED<PIN> {
+    fn on_notification(&'static mut self, message: Off) -> Completion {
+        log::info!("LED turn off");
         Completion::defer( async move {
             self.turn_off();
         })

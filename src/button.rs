@@ -1,25 +1,30 @@
 use cortex_m::interrupt::Nr;
 use stm32l4xx_hal::gpio::ExtiPin;
 use stm32l4xx_hal::hal::digital::v2::InputPin;
-use drogue_device::interrupt::Interrupt;
-use drogue_device::sink::Sink;
-use drogue_device::handler::TellHandler;
+use drogue_device::prelude::*;
 
 pub enum ButtonEvent {
     Pressed,
     Released,
 }
 
-pub struct Button<IRQ, PIN, SINK: Sink<ButtonEvent>> {
-    irq: IRQ,
+pub struct Button<PIN, SINK: Sink<ButtonEvent>> {
     pin: PIN,
     sink: Option<SINK>,
 }
 
-impl<IRQ: Nr, PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Button<IRQ, PIN, SINK> {
-    pub fn new(irq: IRQ, pin: PIN) -> Self {
+
+impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Actor for Button<PIN, SINK> {
+
+}
+
+pub struct SetSink<SINK: Sink<ButtonEvent>>(pub SINK);
+
+
+
+impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Button<PIN, SINK> {
+    pub fn new(pin: PIN) -> Self {
         Self {
-            irq,
             pin,
             sink: None,
         }
@@ -30,28 +35,25 @@ impl<IRQ: Nr, PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Button<IRQ, PIN,
     }
 }
 
-pub struct ButtonStartArguments<SINK: Sink<ButtonEvent>> {
-    pub sink: SINK,
+impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> NotificationHandler<SetSink<SINK>> for Button<PIN, SINK> {
+    fn on_notification(&'static mut self, message: SetSink<SINK>) -> Completion {
+        self.set_sink(message.0);
+        Completion::immediate()
+    }
 }
 
-impl<IRQ: Nr, PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Interrupt for Button<IRQ, PIN, SINK> {
-    type StartArguments = ButtonStartArguments<SINK>;
-
-    fn irq(&self) -> u8 {
-        self.irq.nr()
-    }
-
-    fn start(&mut self, args: Self::StartArguments) {
-        self.sink.replace(args.sink);
-    }
-
+impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Interrupt for Button<PIN, SINK> {
     fn on_interrupt(&mut self) {
+        log::info!("button irq");
         if self.pin.check_interrupt() {
+            log::info!("is irq");
             if let Some(ref sink) = &self.sink {
                 if self.pin.is_high().unwrap_or(false) {
-                    sink.tell(ButtonEvent::Pressed)
+                    log::info!("button release");
+                    sink.notify(ButtonEvent::Released)
                 } else {
-                    sink.tell(ButtonEvent::Released)
+                    log::info!("button press");
+                    sink.notify(ButtonEvent::Pressed)
                 }
             }
             self.pin.clear_interrupt_pending_bit();

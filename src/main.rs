@@ -4,6 +4,8 @@
 mod button;
 mod led;
 mod device;
+//mod spi;
+//mod eswifi;
 
 use cortex_m_rt::{entry, exception};
 use stm32l4xx_hal::{prelude::*, rcc::RccExt, stm32::Peripherals};
@@ -18,12 +20,9 @@ use stm32l4xx_hal::gpio::{Edge, Input, Output, PullUp, PushPull, PA5, PC13};
 use button::Button;
 use led::LED;
 use device::MyDevice;
+
 use stm32l4xx_hal::pac::Interrupt::EXTI15_10;
-use drogue_device::actor::ActorContext;
-use drogue_device::interrupt::InterruptContext;
-use drogue_device::supervisor::Supervisor;
-use drogue_device::device::Device;
-use drogue_device::init_heap;
+use drogue_device::prelude::*;
 
 static LOGGER: RTTLogger = RTTLogger::new(LevelFilter::Debug);
 
@@ -67,38 +66,13 @@ fn main() -> ! {
     button.enable_interrupt(&mut device.EXTI);
     button.trigger_on_edge(&mut device.EXTI, Edge::RISING_FALLING);
 
-    let button = Button::new(EXTI15_10, button);
+    let button = Button::new( button);
 
-    let mut device = MyDevice {
+    let device = MyDevice {
         ld1: ActorContext::new(ld1),
-        button: InterruptContext::new(button),
+        button: InterruptContext::new(button, EXTI15_10),
     };
 
-    let device = unsafe {
-        DEVICE.replace(device);
-        DEVICE.as_mut().unwrap()
-    };
-
-    let supervisor= unsafe {
-        SUPERVISOR.replace( Supervisor::new() );
-        SUPERVISOR.as_mut().unwrap()
-    };
-
-    init_heap!( 1024 );
-
-    device.start(supervisor);
-    supervisor.run_forever()
-    //loop {}
-    //device!( MyDevice => device; 1024 );
+    device!( MyDevice = device; 1024 );
 }
 
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    log::info!("IRQ {}", irqn);
-    unsafe {
-        SUPERVISOR.as_ref().unwrap().on_interrupt(irqn);
-    }
-}
-
-static mut DEVICE: Option<MyDevice> = None;
-static mut SUPERVISOR: Option<Supervisor> = None;
