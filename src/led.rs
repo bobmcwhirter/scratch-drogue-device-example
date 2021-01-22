@@ -15,7 +15,6 @@ impl<PIN: OutputPin> LED<PIN> {
     }
 
     pub fn turn_on(&mut self) {
-
         self.pin.set_high().ok().unwrap();
     }
 

@@ -44,15 +44,11 @@ impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> NotificationHandler<SetSi
 
 impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Interrupt for Button<PIN, SINK> {
     fn on_interrupt(&mut self) {
-        log::info!("button irq");
         if self.pin.check_interrupt() {
-            log::info!("is irq");
             if let Some(ref sink) = &self.sink {
                 if self.pin.is_high().unwrap_or(false) {
-                    log::info!("button release");
                     sink.notify(ButtonEvent::Released)
                 } else {
-                    log::info!("button press");
                     sink.notify(ButtonEvent::Pressed)
                 }
             }

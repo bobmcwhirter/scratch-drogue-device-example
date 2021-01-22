@@ -4,8 +4,7 @@
 mod button;
 mod led;
 mod device;
-//mod spi;
-//mod eswifi;
+mod hts221;
 
 use cortex_m_rt::{entry, exception};
 use stm32l4xx_hal::{prelude::*, rcc::RccExt, stm32::Peripherals};
@@ -23,12 +22,17 @@ use device::MyDevice;
 
 use stm32l4xx_hal::pac::Interrupt::EXTI15_10;
 use drogue_device::prelude::*;
+use stm32l4xx_hal::pac::I2C2;
+use stm32l4xx_hal::i2c::I2c;
+use stm32l4xx_hal::time::Hertz;
+use drogue_device::mutex::Mutex;
+use crate::hts221::Hts221;
 
 static LOGGER: RTTLogger = RTTLogger::new(LevelFilter::Debug);
 
 #[entry]
 fn main() -> ! {
-    rtt_init_print!();
+    rtt_init_print!(BlockIfFull);
     log::set_logger(&LOGGER).unwrap();
     log::set_max_level(log::LevelFilter::Debug);
     log::info!("Init");
@@ -39,7 +43,7 @@ fn main() -> ! {
     let mut flash = device.FLASH.constrain();
     let mut rcc = device.RCC.constrain();
     let mut pwr = device.PWR.constrain(&mut rcc.apb1r1);
-    let _clocks = rcc
+    let clocks = rcc
         .cfgr
         .sysclk(80.mhz())
         .pclk1(80.mhz())
@@ -47,30 +51,55 @@ fn main() -> ! {
         .freeze(&mut flash.acr, &mut pwr);
 
     let mut gpioa = device.GPIOA.split(&mut rcc.ahb2);
+    let mut gpiob = device.GPIOB.split(&mut rcc.ahb2);
+    let mut gpioc = device.GPIOC.split(&mut rcc.ahb2);
+
+    // == LED ==
+
     let ld1 = gpioa
-        .pa5
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
+            .pa5
+            .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
 
     let ld1 = LED::new(ld1);
 
-    let mut gpiob = device.GPIOB.split(&mut rcc.ahb2);
-    let ld2 = gpiob
-        .pb14
-        .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+    // == Button ==
 
-    let mut gpioc = device.GPIOC.split(&mut rcc.ahb2);
     let mut button = gpioc
-        .pc13
-        .into_pull_up_input(&mut gpioc.moder, &mut gpioc.pupdr);
-    button.make_interrupt_source(&mut device.SYSCFG, &mut rcc.apb2);
-    button.enable_interrupt(&mut device.EXTI);
-    button.trigger_on_edge(&mut device.EXTI, Edge::RISING_FALLING);
+            .pc13
+            .into_pull_up_input(&mut gpioc.moder, &mut gpioc.pupdr);
 
-    let button = Button::new( button);
+            button.make_interrupt_source(&mut device.SYSCFG, &mut rcc.apb2);
+            button.enable_interrupt(&mut device.EXTI);
+            button.trigger_on_edge(&mut device.EXTI, Edge::RISING_FALLING);
+
+    let button = Button::new(button);
+
+    // == i2c
+
+    let scl = gpiob
+        .pb10
+        .into_open_drain_output( &mut gpiob.moder, &mut gpiob.otyper)
+        .into_af4( &mut gpiob.moder, &mut gpiob.afrh );
+
+    let sda = gpiob.pb11
+        .into_open_drain_output( &mut gpiob.moder, &mut gpiob.otyper)
+        .into_af4( &mut gpiob.moder, &mut gpiob.afrh );
+
+    let i2c = I2c::i2c2( device.I2C2, ( scl, sda ), Hertz(100_000u32), clocks, &mut rcc.apb1r1 );
+
+    let i2c = Mutex::new(i2c);
+
+    // == HTS221 ==
+
+    let hts221 = Hts221::new();
+
+    // == Device ==
 
     let device = MyDevice {
-        ld1: ActorContext::new(ld1),
-        button: InterruptContext::new(button, EXTI15_10),
+        ld1: ActorContext::new(ld1).with_name("ld1" ),
+        button: InterruptContext::new(button, EXTI15_10).with_name("button" ),
+        i2c: ActorContext::new( i2c).with_name( "i2c" ),
+        hts221: ActorContext::new(hts221).with_name("hts221" ),
     };
 
     device!( MyDevice = device; 1024 );
