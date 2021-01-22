@@ -1,16 +1,20 @@
 
 use stm32l4xx_hal::pac::{Interrupt, I2C2};
-use crate::led::{LED, On, Off};
 use stm32l4xx_hal::gpio::{PA5, Output, PushPull, PC13, Input, PullUp, OpenDrain, AF4, Alternate, PB10, PB11};
 use crate::button::{Button, ButtonEvent, SetSink};
 use drogue_device::{
     prelude::*,
-    mutex::Mutex,
+    synchronization::Mutex,
+    driver::{
+        sensor::hts221::{
+            Hts221,
+        },
+        led::SimpleLED,
+    },
 };
 use stm32l4xx_hal::i2c::I2c;
-use crate::hts221::{Hts221, TakeReading, SetI2c};
 
-type Ld1Actor = LED<PA5<Output<PushPull>>>;
+type Ld1Actor = SimpleLED<PA5<Output<PushPull>>>;
 type ButtonInterrupt<SINK> = Button<PC13<Input<PullUp>>, SINK>;
 
 type I2cScl = PB10<Alternate<AF4, Output<OpenDrain>>>;
@@ -33,7 +37,7 @@ impl Device for MyDevice {
         let i2c_addr = self.i2c.start(supervisor);
         let hts221_addr = self.hts221.start(supervisor);
 
-        hts221_addr.notify( SetI2c( i2c_addr ) );
+        hts221_addr.bind( &i2c_addr  );
 
         let button_addr = self.button.start(supervisor);
 
@@ -67,11 +71,11 @@ impl Sink<ButtonEvent> for ButtonToLed {
     fn notify(&self, message: ButtonEvent) {
         match message {
             ButtonEvent::Pressed => {
-                self.ld1.notify( On );
-                self.hts221.notify( TakeReading);
+                self.ld1.turn_on();
+                self.hts221.trigger_read_temperature();
             }
             ButtonEvent::Released => {
-                self.ld1.notify( Off )
+                self.ld1.turn_off();
             }
         }
     }

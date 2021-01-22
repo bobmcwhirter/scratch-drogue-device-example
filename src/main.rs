@@ -2,9 +2,9 @@
 #![no_main]
 
 mod button;
-mod led;
+//mod led;
 mod device;
-mod hts221;
+//mod hts221;
 
 use cortex_m_rt::{entry, exception};
 use stm32l4xx_hal::{prelude::*, rcc::RccExt, stm32::Peripherals};
@@ -17,16 +17,20 @@ use rtt_target::rtt_init_print;
 use stm32l4xx_hal::gpio::{Edge, Input, Output, PullUp, PushPull, PA5, PC13};
 
 use button::Button;
-use led::LED;
 use device::MyDevice;
 
 use stm32l4xx_hal::pac::Interrupt::EXTI15_10;
-use drogue_device::prelude::*;
+use drogue_device::{
+    prelude::*,
+    synchronization::Mutex,
+    driver::{
+        sensor::hts221::Hts221,
+        led::SimpleLED,
+    },
+};
 use stm32l4xx_hal::pac::I2C2;
 use stm32l4xx_hal::i2c::I2c;
 use stm32l4xx_hal::time::Hertz;
-use drogue_device::mutex::Mutex;
-use crate::hts221::Hts221;
 
 static LOGGER: RTTLogger = RTTLogger::new(LevelFilter::Debug);
 
@@ -60,7 +64,7 @@ fn main() -> ! {
             .pa5
             .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
 
-    let ld1 = LED::new(ld1);
+    let ld1 = SimpleLED::new(ld1);
 
     // == Button ==
 

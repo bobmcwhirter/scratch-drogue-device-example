@@ -101,6 +101,7 @@ name = "drogue-device"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "embedded-hal",
  "heapless",
  "log",
 ]
