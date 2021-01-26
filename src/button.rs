@@ -2,56 +2,41 @@ use cortex_m::interrupt::Nr;
 use stm32l4xx_hal::gpio::ExtiPin;
 use stm32l4xx_hal::hal::digital::v2::InputPin;
 use drogue_device::prelude::*;
+use crate::device::ButtonToLed;
 
+#[derive(Copy, Clone)]
 pub enum ButtonEvent {
     Pressed,
     Released,
 }
 
-pub struct Button<PIN, SINK: Sink<ButtonEvent>> {
+pub struct Button<PIN> {
     pin: PIN,
-    sink: Option<SINK>,
 }
 
-
-impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Actor for Button<PIN, SINK> {
-
+impl<PIN: InputPin + ExtiPin> Actor for Button<PIN> {
+    type Event = ButtonEvent;
 }
 
-pub struct SetSink<SINK: Sink<ButtonEvent>>(pub SINK);
-
-
-
-impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Button<PIN, SINK> {
-    pub fn new(pin: PIN) -> Self {
-        Self {
-            pin,
-            sink: None,
-        }
-    }
-
-    pub fn set_sink(&mut self, sink: SINK) {
-        self.sink.replace(sink);
-    }
-}
-
-impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> NotificationHandler<SetSink<SINK>> for Button<PIN, SINK> {
-    fn on_notification(&'static mut self, message: SetSink<SINK>) -> Completion {
-        self.set_sink(message.0);
+impl<PIN: InputPin + ExtiPin> NotificationHandler<Lifecycle> for Button<PIN> {
+    fn on_notification(&'static mut self, message: Lifecycle) -> Completion {
         Completion::immediate()
     }
 }
 
-impl<PIN: InputPin + ExtiPin, SINK: Sink<ButtonEvent>> Interrupt for Button<PIN, SINK> {
+impl<PIN: InputPin + ExtiPin> Button<PIN> {
+    pub fn new(pin: PIN) -> Self {
+        Self {
+            pin,
+        }
+    }
+}
+
+
+impl<PIN: InputPin + ExtiPin> Interrupt for Button<PIN> {
     fn on_interrupt(&mut self) {
         if self.pin.check_interrupt() {
-            if let Some(ref sink) = &self.sink {
-                if self.pin.is_high().unwrap_or(false) {
-                    sink.notify(ButtonEvent::Released)
-                } else {
-                    sink.notify(ButtonEvent::Pressed)
-                }
-            }
+            log::info!("button pressed");
             self.pin.clear_interrupt_pending_bit();
         }
     }

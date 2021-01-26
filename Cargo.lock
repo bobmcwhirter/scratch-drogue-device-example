@@ -104,6 +104,7 @@ dependencies = [
  "embedded-hal",
  "heapless",
  "log",
+ "stm32l4xx-hal",
 ]
 
 [[package]]
