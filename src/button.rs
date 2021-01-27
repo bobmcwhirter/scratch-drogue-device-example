@@ -14,8 +14,7 @@ pub struct Button<PIN> {
     pin: PIN,
 }
 
-impl<PIN: InputPin + ExtiPin> Actor for Button<PIN> {
-    type Event = ButtonEvent;
+impl<D: Device, PIN: InputPin + ExtiPin> Actor<D> for Button<PIN> {
 }
 
 impl<PIN: InputPin + ExtiPin> NotificationHandler<Lifecycle> for Button<PIN> {
@@ -33,7 +32,7 @@ impl<PIN: InputPin + ExtiPin> Button<PIN> {
 }
 
 
-impl<PIN: InputPin + ExtiPin> Interrupt for Button<PIN> {
+impl<D: Device, PIN: InputPin + ExtiPin> Interrupt<D> for Button<PIN> {
     fn on_interrupt(&mut self) {
         if self.pin.check_interrupt() {
             log::info!("button pressed");

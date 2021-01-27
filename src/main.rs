@@ -19,7 +19,7 @@ use stm32l4xx_hal::gpio::{Edge, Input, Output, PullUp, PushPull, PA5, PC13};
 use button::Button;
 use device::MyDevice;
 
-use stm32l4xx_hal::pac::Interrupt::EXTI15_10;
+use stm32l4xx_hal::pac::Interrupt::{EXTI15_10, TIM15};
 use drogue_device::{
     prelude::*,
     synchronization::Mutex,
@@ -28,10 +28,17 @@ use drogue_device::{
         led::SimpleLED,
     },
 };
-use stm32l4xx_hal::pac::I2C2;
+use stm32l4xx_hal::pac::{I2C2, RCC};
 use stm32l4xx_hal::i2c::I2c;
 use stm32l4xx_hal::time::Hertz;
 use cortex_m::peripheral::NVIC;
+use drogue_device::driver::timer::{
+    Timer,
+    stm32l4xx::Timer as McuTimer,
+};
+use drogue_device::driver::led::Blinker;
+use drogue_device::hal::Active;
+use drogue_device::domain::time::duration::Milliseconds;
 
 static LOGGER: RTTLogger = RTTLogger::new(LevelFilter::Debug);
 
@@ -60,13 +67,24 @@ fn main() -> ! {
     let mut gpioc = device.GPIOC.split(&mut rcc.ahb2);
     let mut gpiod = device.GPIOD.split(&mut rcc.ahb2);
 
-    // == LED ==
+    // == LEDs ==
 
     let ld1 = gpioa
         .pa5
         .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
 
-    let ld1 = SimpleLED::new(ld1);
+    let ld1 = SimpleLED::new(ld1, Active::High);
+
+    let ld2 = gpiob
+        .pb14
+        .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+
+    let ld2 = SimpleLED::new(ld2, Active::High);
+
+    // == Blinker ==
+
+    let blinker1 = Blinker::new(Milliseconds(500u32));
+    let blinker2 = Blinker::new(Milliseconds(1000u32));
 
     // == Button ==
 
@@ -105,14 +123,26 @@ fn main() -> ! {
 
     let hts221 = Hts221::new(ready, EXTI15_10);
 
+    // == Timer ==
+
+    let mcu_timer = McuTimer::tim15( device.TIM15, clocks, &mut rcc.apb2);
+    let timer = Timer::new(mcu_timer );
+
+
+
     // == Device ==
 
     let device = MyDevice {
         ld1: ActorContext::new(ld1).with_name("ld1"),
+        ld2: ActorContext::new(ld2).with_name("ld2"),
+        blinker1: ActorContext::new(blinker1) .with_name("blinker1"),
+        blinker2: ActorContext::new(blinker2) .with_name("blinker2"),
+
         i2c: ActorContext::new(i2c).with_name("i2c"),
         //hts221: ActorContext::new(hts221).with_name("hts221" ),
         hts221,
         button: InterruptContext::new(button, EXTI15_10).with_name("button"),
+        timer: InterruptContext::new( timer, TIM15 ).with_name( "timer"),
     };
 
     device!( MyDevice = device; 1024 );
